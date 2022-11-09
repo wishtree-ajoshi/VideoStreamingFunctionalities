@@ -15,7 +15,11 @@ class HiveDb {
     return videoList?.toMap();
   }
 
+  static deleteDataAt(key) async {
+    videoList?.delete(key);
+  }
+
   static deleteData() async {
-    videoList?.deleteAll;
+    videoList?.clear();
   }
 }

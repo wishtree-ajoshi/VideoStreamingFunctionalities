@@ -33,6 +33,9 @@ class StoreVideo {
         await directory.create(recursive: true);
       }
       if (await directory.exists()) {
+        if (await File("${directory.path}/$fileName.aes").exists()) {
+          return false;
+        }
         File saveFile = File("${directory.path}/$fileName");
         downloadedFile = await DownloadVideo().downloadVideo(
           url: url,
@@ -40,11 +43,8 @@ class StoreVideo {
           directory: directory,
           fileName: fileName,
         );
-        if (await downloadedFile != null) {
-          print("here");
-          await HiveDb.addVideoToList(key: id, value: downloadedFile);
-          Map data = await HiveDb.getVideoList();
-          print("==========$data");
+        if (downloadedFile != null) {
+          await HiveDb.addVideoToList(key: id, value: downloadedFile!.path);
           id = id + 1;
           return true;
         } else {

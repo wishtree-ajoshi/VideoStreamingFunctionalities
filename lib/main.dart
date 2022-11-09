@@ -1,10 +1,15 @@
-import 'package:demo_app/main_page.dart';
+import 'package:demo_app/screens/main_page.dart';
 import 'package:demo_app/methods/database.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await FlutterDownloader.initialize(
+    debug: true,
+    ignoreSsl: true,
+  );
   await Hive.initFlutter();
   await HiveDb().createBox();
   videoList = await initialListLoad();

@@ -26,7 +26,7 @@ class EncryptionDecryption {
 
   decryptFile(videoFileName) async {
     File inFile = File("$videoFileName");
-    File outFile = File("${videoFileName.toString().split('.').first}.mp4");
+    File outFile = File(videoFileName.toString().split('.aes').first);
 
     bool outFileExists = await outFile.exists();
 
