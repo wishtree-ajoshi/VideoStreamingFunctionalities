@@ -15,6 +15,10 @@ class HiveDb {
     return videoList?.toMap();
   }
 
+  static Future<dynamic> getTaskList() async {
+    return videoList?.keys.cast().toList();
+  }
+
   static deleteDataAt(key) async {
     videoList?.delete(key);
   }

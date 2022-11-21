@@ -12,7 +12,7 @@ void main() async {
   );
   await Hive.initFlutter();
   await HiveDb().createBox();
-  videoList = await initialListLoad();
+  await initialListLoad();
   runApp(const MyApp());
 }
 
@@ -24,11 +24,15 @@ class MyApp extends StatefulWidget {
 }
 
 Map videoList = {};
+List taskList = [];
 
 initialListLoad() async {
-  return (await HiveDb.getVideoList() != null)
-      ? await HiveDb.getVideoList()
-      : {};
+  if (await HiveDb.getVideoList() != null) {
+    videoList = await HiveDb.getVideoList();
+    taskList = await HiveDb.getTaskList();
+    print("initial videoList: $videoList");
+    print("initial taskList: $taskList");
+  }
 }
 
 class _MyAppState extends State<MyApp> {
@@ -41,7 +45,7 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         primarySwatch: Colors.red,
       ),
-      home: MainPage(videoList: videoList),
+      home: MainPage(videoList: videoList, taskList: taskList),
     );
   }
 }

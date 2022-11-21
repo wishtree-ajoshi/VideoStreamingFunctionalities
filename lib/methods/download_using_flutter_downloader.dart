@@ -4,22 +4,26 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class DownloadUsingFlutterDownloader {
-  downloadVideo({required url, id}) async {
+  downloadVideo({required url}) async {
     final status =
         await RequestPermissions().checkPermission(Permission.storage);
     if (status) {
-      final externalDir = await getExternalStorageDirectory();
+      final externalDir = await getApplicationDocumentsDirectory();
       try {
-        final nos = await FlutterDownloader.enqueue(
+        final taskId = await FlutterDownloader.enqueue(
           url: url,
           savedDir: externalDir!.path,
           openFileFromNotification: false,
-          showNotification: false,
-          saveInPublicStorage: false,
-          fileName: "Video_$id.mp4",
-        );
-        print("*-*-taskId*-*-*-*-*-*-*-*-*$nos");
-        return nos;
+          showNotification: true,
+          fileName: "${DateTime.now()}",
+        ).onError((error, stackTrace) => null);
+        print("*-*-taskId*-*-*-*-*-*-*-*-*$taskId");
+        final path = "${externalDir.path}/$taskId";
+        print("......................$path");
+        return [
+          taskId,
+          path,
+        ];
       } catch (e) {
         print("***+*+*+*+*+*+*+*+*++*+*+*+*+*+*+*+*+*$e");
         return null;

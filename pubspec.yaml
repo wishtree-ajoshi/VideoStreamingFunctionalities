@@ -48,6 +48,8 @@ dependencies:
   hive_flutter: ^1.1.0
   flutter_downloader: ^1.9.0
   image_picker: ^0.8.6
+  flutter_form_builder: ^7.7.0
+  form_builder_file_picker: ^2.3.0
   
 
 dev_dependencies:

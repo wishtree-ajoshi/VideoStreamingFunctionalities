@@ -14,7 +14,7 @@ class UploadFile extends StatefulWidget {
 
 class _UploadFileState extends State<UploadFile> {
   File? _image;
-  String imageUrl = '';
+  String? imageUrl;
 
   uploadImageFromCamera() async {
     imageUrl = await ImageSelector().pickImageCamera(imageUrl, _image);
@@ -25,7 +25,7 @@ class _UploadFileState extends State<UploadFile> {
         imageUrl = _image!.path;
       }
     }
-    final File newImage = File(imageUrl);
+    final File newImage = File(imageUrl!);
     setState(() {
       _image = newImage;
     });
@@ -40,7 +40,7 @@ class _UploadFileState extends State<UploadFile> {
         imageUrl = _image!.path;
       }
     }
-    final File newImage = File(imageUrl);
+    final File newImage = File(imageUrl!);
     setState(() {
       _image = newImage;
     });
@@ -57,13 +57,18 @@ class _UploadFileState extends State<UploadFile> {
           children: [
             ClipOval(
               child: CircleAvatar(
-                  radius: 70,
-                  backgroundColor: Colors.orangeAccent,
-                  child: (_image == null)
-                      ? Image.asset(
-                          "assets/noImage.png",
-                        )
-                      : Image.file(_image!)),
+                radius: 70,
+                backgroundColor: Colors.orangeAccent,
+                child: (_image == null)
+                    ? Image.asset(
+                        "assets/noImage.png",
+                      )
+                    : Image.file(
+                        _image!,
+                        width: 140,
+                        fit: BoxFit.fitWidth,
+                      ),
+              ),
             ),
             MaterialButton(
               onPressed: () async {

@@ -6,10 +6,8 @@ import 'package:demo_app/methods/check_internet.dart';
 import 'package:demo_app/methods/download_using_flutter_downloader.dart';
 import 'package:demo_app/methods/encryption_decryption.dart';
 import 'package:demo_app/screens/full_screen.dart';
-import 'package:demo_app/methods/download_video.dart';
-import 'package:demo_app/methods/store_video.dart';
-import 'package:demo_app/screens/saved_videos_screen.dart';
 import 'package:demo_app/methods/database.dart';
+import 'package:demo_app/screens/quiz_page.dart';
 import 'package:demo_app/screens/upload_file.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
@@ -20,9 +18,11 @@ class MainPage extends StatefulWidget {
   MainPage(
       {super.key,
       required this.videoList,
+      required this.taskList,
       this.offline = false,
       this.filePath = ''});
   Map videoList;
+  List taskList;
   bool offline;
   String filePath;
   @override
@@ -32,14 +32,14 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   late VideoPlayerController controller;
   bool isVisible = true;
-  int id = 0;
-  Timer? timer;
+  Timer? timer; //Timer for changing visibility of overlay
   bool internet = false;
   bool loading = false;
   int progress = 0;
   String url =
-      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4';
-  Map data = {};
+      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4';
+  Map data = {}; //Map of all videos downloaded..
+  List taskList = []; //List of taskID ..i.e keys of VideoMap
   final ReceivePort _port = ReceivePort();
 
   ///Function to download and save a video to files in encrypted format...
@@ -49,62 +49,68 @@ class _MainPageState extends State<MainPage> {
       progress = 0;
     });
 
-    /// saveVideo will download and save file to Device and will return a boolean
-    /// for if the file is successfully or not
+    /// saveVideo will download and save file to Device and will return a boolean for if the file is successfully or not
 
-    final taskId =
-        await DownloadUsingFlutterDownloader().downloadVideo(url: url, id: id);
+    final result =
+        await DownloadUsingFlutterDownloader().downloadVideo(url: url);
 
-    // bool downloaded = await StoreVideo().saveVideo(
-    //   url: url,
-    //   fileName: "Video_$id.mp4",
-    //   id: id,
-    // );
+    if (await result != null) {
+      final taskId = await result[0];
+      final filePath = await result[1];
 
-    if (await taskId != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          width: 200,
-          backgroundColor: Colors.red.withOpacity(0.7),
-          shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(50))),
-          content: const Text(
-            "File Downloaded",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white,
+      // bool downloaded = await StoreVideo().saveVideo(
+      //   url: url,
+      //   fileName: "Video_$id.mp4",
+      //   id: id,
+      // );
+
+      if (await result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            width: 200,
+            backgroundColor: Colors.red.withOpacity(0.7),
+            shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(50))),
+            content: const Text(
+              "File Downloaded",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+              ),
             ),
           ),
-        ),
-      );
-    }
+        );
+      }
 
-    if (await taskId == null) {
-      await HiveDb.addVideoToList(key: id, value: taskId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          width: 200,
-          backgroundColor: Colors.red.withOpacity(0.7),
-          shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(50))),
-          content: const Text(
-            "Error Downloading File",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white,
+      if (await result == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            width: 200,
+            backgroundColor: Colors.red.withOpacity(0.7),
+            shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(50))),
+            content: const Text(
+              "Error Downloading File",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+              ),
             ),
           ),
-        ),
-      );
+        );
+        loading = false;
+        return null;
+      }
+      taskList.add(taskId);
+      await HiveDb.addVideoToList(key: taskId, value: filePath);
+      data = await HiveDb.getVideoList();
+      print("///data//////$data");
+      widget.videoList = data;
+      print("data is ......$data");
+      print("taskList is ......$taskList");
     }
-
-    widget.videoList = await HiveDb.getVideoList();
-    if (await taskId != null) {
-      id = id + 1;
-    }
-    print(id);
     print("///videoList//////${widget.videoList}");
     getData();
     setState(() {
@@ -114,20 +120,18 @@ class _MainPageState extends State<MainPage> {
 
   ///Function to delete all the videos downloaded and clearing the database...
   onClearAll() async {
-    if (widget.videoList.isNotEmpty) {
-      for (int i = 0; i < widget.videoList.length; i++) {
-        if (await File("${widget.videoList[i]}").exists()) {
-          await File("${widget.videoList[i]}").delete();
+    if (data.isNotEmpty) {
+      for (int i = 0; i < data.length; i++) {
+        if (await File("${data[i]}").exists()) {
+          await File("${data[i]}").delete();
         }
       }
     }
-    id = 0;
     await HiveDb.deleteData();
     if (mounted) {
       setState(() {});
     }
-    widget.videoList = await HiveDb.getVideoList();
-    print(widget.videoList);
+    getData();
   }
 
   ///Function to hide overlay automatically
@@ -145,15 +149,12 @@ class _MainPageState extends State<MainPage> {
   }
 
   ///Delete the saved videos...
+
   deleteVideo(index) async {
-    if (await File("${data[index]}").exists()) {
-      await File("${data[index]}").delete();
-    }
-    await HiveDb.deleteDataAt(index);
-    data = await HiveDb.getVideoList();
-    id = id - 1;
-    print(id);
-    getData();
+    await FlutterDownloader.remove(
+        taskId: taskList[index], shouldDeleteContent: true);
+    await HiveDb.deleteDataAt(taskList[index]);
+    await getData();
     if (mounted) {
       setState(() {});
     }
@@ -163,25 +164,30 @@ class _MainPageState extends State<MainPage> {
   onTilePressed({
     required int index,
   }) async {
-    if (await File(data[index]).exists()) {
-      File file = await EncryptionDecryption().decryptFile(data[index]);
-      print("***********${file.path}");
+    print("data is ......$data");
+    print("taskList is ......$taskList");
+    print("data at index: $index..${taskList[index]}");
+    // if (await File(data[index]).exists()) {
+    //   File file = await EncryptionDecryption().decryptFile(data[index]);
+    //   print("***********${file.path}");
 
-      Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => MainPage(
-              videoList: data,
-              filePath: file.path,
-              offline: true,
-            ),
-          ));
-    }
+    //   Navigator.pushReplacement(
+    //       context,
+    //       MaterialPageRoute(
+    //         builder: (context) => MainPage(
+    //           videoList: data,
+    //           filePath: file.path,
+    //           offline: true,
+    //         ),
+    //       ));
+    // }
   }
 
   getData() async {
     data = await HiveDb.getVideoList();
-    id = data.length;
+    taskList = await HiveDb.getTaskList();
+    print("getData......////....$data");
+    print("getData......////....$taskList");
     if (mounted) {
       setState(() {});
     }
@@ -191,14 +197,28 @@ class _MainPageState extends State<MainPage> {
     internet = await CheckInternet().checkConnection();
     if (mounted) {
       setState(() {
-        print(internet);
+        print("internet status........../// $internet");
       });
+    }
+  }
+
+  ///Function to convert the duration of video...
+  String videoDuration(Duration duration) {
+    String hh(int n) => n.toString().padLeft(2, "0");
+    String mm = hh(duration.inMinutes.remainder(60));
+    String ss = hh(duration.inSeconds.remainder(60));
+    if (hh(duration.inHours) == "00") {
+      return "$mm:$ss";
+    } else {
+      return "${hh(duration.inHours)}:$mm:$ss";
     }
   }
 
   @override
   void initState() {
     checkInternet();
+    data = widget.videoList;
+    taskList = widget.taskList;
     getData();
     controller = (widget.offline == true)
         ? VideoPlayerController.file(File(widget.filePath))
@@ -207,20 +227,24 @@ class _MainPageState extends State<MainPage> {
         // Ensure the first frame is shown after the video is initialized, even before the play button has been pressed.
         setState(() {});
       });
-    id = (widget.videoList.isEmpty) ? 0 : widget.videoList.length;
     super.initState();
 
     IsolateNameServer.registerPortWithName(
         _port.sendPort, 'downloader_send_port');
     _port.listen((dynamic data) {
-      print("//data///////////$data");
-      String id = data[0];
-      DownloadTaskStatus status = data[1];
-      progress = data[2];
-      setState(() {});
+      setState(() {
+        progress = data[2];
+      });
     });
 
     FlutterDownloader.registerCallback(downloadCallback);
+  }
+
+  @pragma('vm:entry-point')
+  static downloadCallback(String id, DownloadTaskStatus status, int progress) {
+    SendPort send =
+        IsolateNameServer.lookupPortByName('downloader_send_port') as SendPort;
+    send.send([id, status, progress]);
   }
 
   @override
@@ -229,17 +253,8 @@ class _MainPageState extends State<MainPage> {
     super.dispose();
   }
 
-  @pragma('vm:entry-point')
-  static void downloadCallback(
-      String id, DownloadTaskStatus status, int progress) {
-    final SendPort? send =
-        IsolateNameServer.lookupPortByName('downloader_send_port');
-    send!.send([id, status, progress]);
-  }
-
   @override
   Widget build(BuildContext context) {
-    print("/id/*/*//*/*//*/* $id");
     return Scaffold(
       appBar: AppBar(
         title: const Text("Video Streaming"),
@@ -251,10 +266,11 @@ class _MainPageState extends State<MainPage> {
         children: [
           Container(
             decoration: const BoxDecoration(
+                color: Colors.white,
                 border: Border(bottom: BorderSide(color: Colors.black))),
             child: Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 child: Column(children: [
                   GestureDetector(
                     onTap: (() {
@@ -284,6 +300,25 @@ class _MainPageState extends State<MainPage> {
                                   right: 0,
                                   child: Column(
                                     children: [
+                                      ///Duration of elapsed video to total video..
+                                      ValueListenableBuilder(
+                                        valueListenable: controller,
+                                        builder: (context,
+                                            VideoPlayerValue value, child) {
+                                          return Padding(
+                                            padding:
+                                                const EdgeInsets.only(left: 10),
+                                            child: Align(
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                "${videoDuration(controller.value.position)}/${videoDuration(controller.value.duration)}",
+                                                style: const TextStyle(
+                                                    color: Colors.white70),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
                                       Padding(
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 10),
@@ -292,7 +327,7 @@ class _MainPageState extends State<MainPage> {
                                           allowScrubbing: true,
                                           colors: const VideoProgressColors(
                                             //video player progress bar
-                                            backgroundColor: Colors.black12,
+                                            backgroundColor: Colors.black26,
                                             playedColor: Colors.red,
                                             bufferedColor: Colors.grey,
                                           ),
@@ -300,7 +335,7 @@ class _MainPageState extends State<MainPage> {
                                       ),
                                       Row(
                                         mainAxisAlignment:
-                                            MainAxisAlignment.center,
+                                            MainAxisAlignment.spaceEvenly,
                                         children: [
                                           videoPlayerButtons(
                                               onButtonTap: () {
@@ -318,9 +353,6 @@ class _MainPageState extends State<MainPage> {
                                               },
                                               iconStyle:
                                                   Icons.replay_10_rounded),
-                                          const SizedBox(
-                                            width: 30,
-                                          ),
                                           videoPlayerButtons(
                                               onButtonTap: () {
                                                 visibilityOnOff();
@@ -334,9 +366,6 @@ class _MainPageState extends State<MainPage> {
                                                       .value.isPlaying)
                                                   ? Icons.pause_rounded
                                                   : Icons.play_arrow_rounded),
-                                          const SizedBox(
-                                            width: 30,
-                                          ),
                                           videoPlayerButtons(
                                               onButtonTap: () {
                                                 visibilityOnOff();
@@ -353,9 +382,6 @@ class _MainPageState extends State<MainPage> {
                                               },
                                               iconStyle:
                                                   Icons.forward_10_rounded),
-                                          const SizedBox(
-                                            width: 30,
-                                          ),
                                           videoPlayerButtons(
                                               onButtonTap: () {
                                                 setState(() {
@@ -383,17 +409,23 @@ class _MainPageState extends State<MainPage> {
 
                         ///For  no internet and uninitialized video player..
                         AspectRatio(
-                            aspectRatio: 2,
+                            aspectRatio: 16 / 9,
                             child: Container(
+                              padding: const EdgeInsets.all(20),
                               color: Colors.black,
                               width: double.infinity,
                               child: Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Text(
-                                      "Looks like there was some issue..please try reloading",
-                                      style: TextStyle(color: Colors.white),
+                                    const Align(
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        "Looks like there was some issue.."
+                                        "Please try reloading..",
+                                        style: TextStyle(color: Colors.white),
+                                        overflow: TextOverflow.visible,
+                                      ),
                                     ),
                                     IconButton(
                                       onPressed: (() async {
@@ -468,14 +500,14 @@ class _MainPageState extends State<MainPage> {
                             padding: const EdgeInsets.all(8.0),
                             child: LinearProgressIndicator(
                               minHeight: 10,
-                              value: progress.toDouble(),
+                              value: progress / 100,
                             ),
                           ),
                         )
                       : const SizedBox(),
-                  (widget.offline == true)
-                      ? const Text("Offline Mode")
-                      : const SizedBox(),
+                  // (widget.offline == true)
+                  //     ? const Text("Offline Mode")
+                  //     : const SizedBox(),
                   MaterialButton(
                     onPressed: () {
                       Navigator.push(
@@ -516,7 +548,7 @@ class _MainPageState extends State<MainPage> {
                         onTap: () {
                           onTilePressed(index: index);
                         },
-                        title: Text("${data[index]}"),
+                        title: Text("${data[taskList[index]]}"),
                       ),
                     ),
                   ),
@@ -528,14 +560,42 @@ class _MainPageState extends State<MainPage> {
                 ),
           Container(
               decoration: const BoxDecoration(
+                  color: Colors.white,
                   border: Border(top: BorderSide(color: Colors.black))),
               padding: const EdgeInsets.all(20),
               width: double.infinity,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: const [
-                  SizedBox(child: Text("I need help")),
-                  Text("I understand"),
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const QuizPage(),
+                        )),
+                    child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          borderRadius:
+                              const BorderRadius.all(Radius.circular(20)),
+                          border: Border.all(
+                            color: Colors.black,
+                            width: 1,
+                          ),
+                        ),
+                        child: const Text("Take me to Quiz")),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.all(Radius.circular(20)),
+                      border: Border.all(
+                        color: Colors.black,
+                        width: 1,
+                      ),
+                    ),
+                    child: const Text("I dont understand"),
+                  ),
                 ],
               )),
         ],
