@@ -12,7 +12,7 @@ class DownloadUsingFlutterDownloader {
       try {
         final taskId = await FlutterDownloader.enqueue(
           url: url,
-          savedDir: externalDir!.path,
+          savedDir: externalDir.path,
           openFileFromNotification: false,
           showNotification: true,
           fileName: "${DateTime.now()}",
