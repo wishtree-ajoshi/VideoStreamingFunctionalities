@@ -1,5 +1,11 @@
+import 'dart:io';
+import 'package:demo_app/methods/email_send_url_launcher.dart';
+import 'package:demo_app/methods/email_sender_standalone.dart';
+import 'package:demo_app/screens/email_sender.dart';
+import 'package:demo_app/methods/make_pdf.dart';
 import 'package:demo_app/widgets/text_styles.dart';
 import 'package:demo_app/widgets/reusable_widgets.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_extra_fields/form_builder_extra_fields.dart';
@@ -19,6 +25,20 @@ class _QuizPageState extends State<QuizPage> {
   Color color = Colors.red;
   getQuiz() async {}
 
+  // navigateToSendEmail(pdf) {
+  //   Navigator.pushReplacement(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (context) => EmailSender(
+  //         pdf: pdf,
+  //         recipient: 'amey.joshi@wishtreetech.com',
+  //         subject: 'Please find attachments',
+  //         body: 'lorem ipsum dolor sit',
+  //       ),
+  //     ),
+  //   );
+  // }
+
   isValid(value) async {
     if (value != null) {
       print("$value");
@@ -31,12 +51,61 @@ class _QuizPageState extends State<QuizPage> {
   onSubmit() async {
     _formKey.currentState!.validate();
     if (_formKey.currentState!.isValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        customSnackbar(
+          title: "Form Submitted..",
+          width: MediaQuery.of(context).size.width - 120,
+        ),
+      );
       print("valid");
       print("formData: ${_formKey.currentState!.value}");
+      final responseKeys = _formKey.currentState!.value.keys.cast().toList();
+      final responseValues =
+          _formKey.currentState!.value.values.cast().toList();
+
+      File pdf = await makePdf(
+          responseValues: responseValues,
+          responseKeys: responseKeys,
+          pdfName: "Quiz_Responses");
+      print("*SIZE**********${pdf.lengthSync()}");
+
+      final attachments =
+          await SendEmail().attachFileToEmail(pdf.path, context);
+
+      if (await attachments.isNotEmpty) {
+        await SendEmail().send(
+          context: context,
+          recipients: ['supriya.karanje@wishtreetech.com'],
+          subject:
+              'POC for automated process of sending email with attachments',
+          body:
+              '''Please find attachments for the PDF file generated from the responses of the form-Builder.\n\nDetails of the POC: This POC is a automated procedure of converting the responses of a form to a PDF and attaching it to mail of sender.\n\nCurrently the recipients, subject and body are provided manually but can be automated or dynamically filled.\n\nRegards, Amey Joshi''',
+          attachments: await attachments,
+        );
+      }
+
+      ///Using Url_Launcher library..
+      // if (await attachments.isNotEmpty) {
+      //   await SendEmailUrlLauncher().send(attachments, context);
+      // }
+
+      ///Dummy email page...
+      //navigateToSendEmail(pdf);
+
+      ///Preview pdf...
+      // Navigator.push(
+      //   context,
+      //   MaterialPageRoute(
+      //     builder: (context) => PdfPreview(
+      //       initialPageFormat: PdfPageFormat.a4,
+      //       build: (format) async => await pdf.save(),
+      //     ),
+      //   ),
+      // );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        errorSnackbar(
-          title: "Please fill all required fields!",
+        customSnackbar(
+          title: "Please fill all required fields..",
           width: MediaQuery.of(context).size.width - 60,
         ),
       );
@@ -83,7 +152,7 @@ class _QuizPageState extends State<QuizPage> {
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                       ),
-                      name: "options",
+                      name: "What is a century?",
                       wrapAlignment: WrapAlignment.center,
                       options: const [
                         FormBuilderChipOption(value: 100),
@@ -108,7 +177,7 @@ class _QuizPageState extends State<QuizPage> {
                       enabled: true,
                       spacing: 100,
                       validator: FormBuilderValidators.required(),
-                      name: 'languages_filter',
+                      name: 'Which language do you know?',
                       alignment: WrapAlignment.center,
                       selectedColor: Colors.red,
                       options: const [
@@ -143,7 +212,7 @@ class _QuizPageState extends State<QuizPage> {
                       wrapAlignment: WrapAlignment.center,
                       wrapSpacing: 40,
                       validator: FormBuilderValidators.required(),
-                      name: 'languages',
+                      name: 'The Language of my people?',
                       decoration:
                           const InputDecoration(border: InputBorder.none),
                       options: const [
@@ -177,10 +246,15 @@ class _QuizPageState extends State<QuizPage> {
                       ),
                       alignment: Alignment.center,
                       enabled: true,
-                      name: "dropdown_options",
-                      onChanged: (value) => setState(() {
-                        print(value);
-                      }),
+                      name: "Select an option which means a century.",
+                      onChanged: (value) => {
+                        if (mounted)
+                          {
+                            setState(() {
+                              print(value);
+                            }),
+                          }
+                      },
                       initialValue: 1,
                       iconEnabledColor: Colors.red,
                       dropdownColor: Colors.red.shade200,
@@ -229,7 +303,7 @@ class _QuizPageState extends State<QuizPage> {
                       ),
                       enabled: true,
                       maxLength: 20,
-                      name: "textField",
+                      name: "What is century in words?",
                     ),
                   ),
 
@@ -244,7 +318,7 @@ class _QuizPageState extends State<QuizPage> {
                           const InputDecoration(border: InputBorder.none),
                       typeSelectors: const [
                         TypeSelector(
-                          type: FileType.any,
+                          type: FileType.custom,
                           selector: SizedBox(
                             child: Icon(
                               Icons.file_upload,
@@ -254,15 +328,17 @@ class _QuizPageState extends State<QuizPage> {
                           ),
                         ),
                       ],
-                      name: "file_upload",
+                      name: "Attach a file",
                       previewImages: false,
                       allowCompression: true,
                       allowMultiple: false,
                       allowedExtensions: const [
-                        ".pdf",
-                        ".png",
-                        ".jpg",
-                        ".docx"
+                        "pdf",
+                        "png",
+                        "jpg",
+                        "docx",
+                        "pptx",
+                        "ppsx"
                       ],
                     ),
                   ),
@@ -280,7 +356,7 @@ class _QuizPageState extends State<QuizPage> {
                         ),
                         hintText: "HH:MM:SS",
                       ),
-                      name: "time_picker",
+                      name: "Select Time",
                       initialTime: TimeOfDay.now(),
                       format: DateFormat.Hms(),
                       inputType: InputType.time,
@@ -302,7 +378,7 @@ class _QuizPageState extends State<QuizPage> {
                       ),
                       wrapAlignment: WrapAlignment.center,
                       glow: false,
-                      name: "rating_bar",
+                      name: "How much are you happy?",
                       direction: Axis.horizontal,
                       initialRating: 0,
                       maxRating: 5,

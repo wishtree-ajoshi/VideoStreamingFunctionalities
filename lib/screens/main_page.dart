@@ -4,11 +4,13 @@ import 'dart:isolate';
 import 'dart:ui';
 import 'package:demo_app/methods/check_internet.dart';
 import 'package:demo_app/methods/download_using_flutter_downloader.dart';
-import 'package:demo_app/methods/encryption_decryption.dart';
+import 'package:demo_app/screens/doc_viewer.dart';
 import 'package:demo_app/screens/full_screen.dart';
 import 'package:demo_app/methods/database.dart';
+import 'package:demo_app/screens/qr_scanner.dart';
 import 'package:demo_app/screens/quiz_page.dart';
 import 'package:demo_app/screens/upload_file.dart';
+import 'package:demo_app/widgets/reusable_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:provider/provider.dart';
@@ -32,22 +34,33 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   late VideoPlayerController controller;
   bool isVisible = true;
-  Timer? timer; //Timer for changing visibility of overlay
+
+  ///Timer for changing visibility of overlay
+  Timer? timer;
+
+  bool tapped = false;
   bool internet = false;
   bool loading = false;
   int progress = 0;
   String url =
-      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4';
-  Map data = {}; //Map of all videos downloaded..
-  List taskList = []; //List of taskID ..i.e keys of VideoMap
+      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4';
+
+  ///Map of all videos downloaded..
+  Map data = {};
+
+  ///List of taskID ..i.e keys of VideoMap
+  List taskList = [];
+
   final ReceivePort _port = ReceivePort();
 
   ///Function to download and save a video to files in encrypted format...
   downloadFile() async {
-    setState(() {
-      loading = true;
-      progress = 0;
-    });
+    if (mounted) {
+      setState(() {
+        loading = true;
+        progress = 0;
+      });
+    }
 
     /// saveVideo will download and save file to Device and will return a boolean for if the file is successfully or not
 
@@ -113,9 +126,11 @@ class _MainPageState extends State<MainPage> {
     }
     print("///videoList//////${widget.videoList}");
     getData();
-    setState(() {
-      loading = false;
-    });
+    if (mounted) {
+      setState(() {
+        loading = false;
+      });
+    }
   }
 
   ///Function to delete all the videos downloaded and clearing the database...
@@ -123,6 +138,8 @@ class _MainPageState extends State<MainPage> {
     if (data.isNotEmpty) {
       for (int i = 0; i < data.length; i++) {
         if (await File("${data[i]}").exists()) {
+          await FlutterDownloader.remove(
+              taskId: taskList[i], shouldDeleteContent: true);
           await File("${data[i]}").delete();
         }
       }
@@ -137,14 +154,18 @@ class _MainPageState extends State<MainPage> {
   ///Function to hide overlay automatically
   visibilityOnOff() {
     timer?.cancel();
-    setState(() {
-      isVisible = true;
-    });
-    timer = Timer.periodic(const Duration(seconds: 3), (_) {
+    if (mounted) {
       setState(() {
-        isVisible = false;
-        timer?.cancel();
+        isVisible = true;
       });
+    }
+    timer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) {
+        setState(() {
+          isVisible = false;
+          timer?.cancel();
+        });
+      }
     });
   }
 
@@ -167,6 +188,9 @@ class _MainPageState extends State<MainPage> {
     print("data is ......$data");
     print("taskList is ......$taskList");
     print("data at index: $index..${taskList[index]}");
+
+    FlutterDownloader.open(taskId: taskList[index]);
+
     // if (await File(data[index]).exists()) {
     //   File file = await EncryptionDecryption().decryptFile(data[index]);
     //   print("***********${file.path}");
@@ -181,6 +205,86 @@ class _MainPageState extends State<MainPage> {
     //         ),
     //       ));
     // }
+  }
+
+  ///Function to check internet and reload when internet is back again...
+  onReload() async {
+    await checkInternet();
+    if (internet == true) {
+      controller = VideoPlayerController.network(url)
+        ..initialize().then((_) {
+          // Ensure the first frame is shown after the video is initialized, even before the play button has been pressed.
+          if (mounted) {
+            setState(() {});
+          }
+        });
+    }
+  }
+
+  ///Function to play or pause the video...
+  playPause() {
+    if (mounted) {
+      setState(() {
+        controller.value.isPlaying ? controller.pause() : controller.play();
+      });
+    }
+  }
+
+  ///Function to skip 10s backwards...
+  onBackward10() {
+    setState(() {
+      visibilityOnOff();
+      controller.seekTo(
+        Duration(seconds: controller.value.position.inSeconds - 10),
+      );
+    });
+  }
+
+  ///Function to skip 10s forward...
+  onForward10() {
+    if (mounted) {
+      setState(() {
+        visibilityOnOff();
+        controller.seekTo(
+          Duration(seconds: controller.value.position.inSeconds + 10),
+        );
+      });
+    }
+  }
+
+  ///Navigate to a full screen page for video player...
+  onFullScreen() {
+    if (mounted) {
+      setState(() {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FullScreen(controller: controller),
+          ),
+        );
+      });
+    }
+  }
+
+  ///Pause downloading....
+  onDownloadPause(taskId) async {
+    await DownloadUsingFlutterDownloader().pauseVideo(taskId: taskId);
+  }
+
+  onDocumentViewerClick() {
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const DocViewer(),
+        ));
+  }
+
+  onQuizPageClick() {
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const QuizPage(),
+        ));
   }
 
   getData() async {
@@ -214,8 +318,21 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
+  onQRScanClick() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const QRScanner(),
+      ),
+    );
+  }
+
+  ///Init State
   @override
   void initState() {
+    // SystemChrome.setPreferredOrientations([
+    //   DeviceOrientation.portraitUp,
+    // ]);
     checkInternet();
     data = widget.videoList;
     taskList = widget.taskList;
@@ -225,16 +342,20 @@ class _MainPageState extends State<MainPage> {
         : VideoPlayerController.network(url)
       ..initialize().then((_) {
         // Ensure the first frame is shown after the video is initialized, even before the play button has been pressed.
-        setState(() {});
+        if (mounted) {
+          setState(() {});
+        }
       });
     super.initState();
 
     IsolateNameServer.registerPortWithName(
         _port.sendPort, 'downloader_send_port');
     _port.listen((dynamic data) {
-      setState(() {
-        progress = data[2];
-      });
+      if (mounted) {
+        setState(() {
+          progress = data[2];
+        });
+      }
     });
 
     FlutterDownloader.registerCallback(downloadCallback);
@@ -255,363 +376,363 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Video Streaming"),
-        centerTitle: true,
-      ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          Container(
-            decoration: const BoxDecoration(
+    return SafeArea(
+      child: Scaffold(
+        drawer: Drawer(
+          backgroundColor: Colors.white,
+          elevation: 10,
+          child: Center(
+            child: Column(
+              children: [
+                ElevatedButton(
+                  onPressed: () => onQRScanClick(),
+                  child: const Text("QR Scanner"),
+                ),
+              ],
+            ),
+          ),
+        ),
+        appBar: AppBar(
+          title: const Text("Video Streaming"),
+          centerTitle: true,
+        ),
+        body: Column(
+          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              decoration: const BoxDecoration(
                 color: Colors.white,
-                border: Border(bottom: BorderSide(color: Colors.black))),
-            child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                child: Column(children: [
-                  GestureDetector(
-                    onTap: (() {
-                      visibilityOnOff();
-                    }),
-                    onDoubleTap: () {
-                      setState(() {
-                        controller.value.isPlaying
-                            ? controller.pause()
-                            : controller.play();
-                      });
-                    },
-                    child: (controller.value.isInitialized && internet == true)
-                        ? AspectRatio(
-                            aspectRatio: 16 / 9,
-                            child: Stack(children: [
-                              VideoPlayer(controller),
+                border: Border(
+                  bottom: BorderSide(color: Colors.black),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Column(
+                  children: [
+                    GestureDetector(
+                      onTap: (() {
+                        visibilityOnOff();
+                      }),
+                      onDoubleTap: () {
+                        playPause();
+                      },
+                      child: (controller.value.isInitialized &&
+                              internet == true)
+                          ? Container(
+                              color: Colors.black,
+                              width: MediaQuery.of(context).size.width,
+                              height:
+                                  MediaQuery.of(context).size.width * 0.5625,
+                              child: Stack(
+                                children: [
+                                  Center(
+                                    child: AspectRatio(
+                                      aspectRatio: controller.value.aspectRatio,
+                                      child: VideoPlayer(controller),
+                                    ),
+                                  ),
 
-                              ///Hide overlay after few seconds...
-                              Visibility(
-                                visible: isVisible,
+                                  ///Hide overlay after few seconds...
+                                  Visibility(
+                                    visible: isVisible,
 
-                                ///Stick overlay to bottom of video player...
-                                child: Positioned(
-                                  bottom: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: Column(
-                                    children: [
-                                      ///Duration of elapsed video to total video..
-                                      ValueListenableBuilder(
-                                        valueListenable: controller,
-                                        builder: (context,
-                                            VideoPlayerValue value, child) {
-                                          return Padding(
-                                            padding:
-                                                const EdgeInsets.only(left: 10),
-                                            child: Align(
-                                              alignment: Alignment.centerLeft,
-                                              child: Text(
-                                                "${videoDuration(controller.value.position)}/${videoDuration(controller.value.duration)}",
-                                                style: const TextStyle(
-                                                    color: Colors.white70),
+                                    ///Stick overlay to bottom of video player...
+                                    child: Positioned(
+                                      bottom: 0,
+                                      left: 0,
+                                      right: 0,
+                                      child: Column(
+                                        children: [
+                                          ///Duration of elapsed video to total video..
+                                          ValueListenableBuilder(
+                                            valueListenable: controller,
+                                            builder: (context,
+                                                VideoPlayerValue value, child) {
+                                              return Padding(
+                                                padding: const EdgeInsets.only(
+                                                    left: 10),
+                                                child: Align(
+                                                  alignment:
+                                                      Alignment.centerLeft,
+                                                  child: Text(
+                                                    "${videoDuration(controller.value.position)}/${videoDuration(controller.value.duration)}",
+                                                    style: const TextStyle(
+                                                        color: Colors.white70),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10),
+                                            child: VideoProgressIndicator(
+                                              controller, //video player controller
+                                              allowScrubbing: true,
+                                              colors: const VideoProgressColors(
+                                                //video player progress bar
+                                                backgroundColor: Colors.black26,
+                                                playedColor: Colors.red,
+                                                bufferedColor: Colors.grey,
                                               ),
                                             ),
-                                          );
-                                        },
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10),
-                                        child: VideoProgressIndicator(
-                                          controller, //video player controller
-                                          allowScrubbing: true,
-                                          colors: const VideoProgressColors(
-                                            //video player progress bar
-                                            backgroundColor: Colors.black26,
-                                            playedColor: Colors.red,
-                                            bufferedColor: Colors.grey,
                                           ),
-                                        ),
-                                      ),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceEvenly,
-                                        children: [
-                                          videoPlayerButtons(
-                                              onButtonTap: () {
-                                                setState(() {
-                                                  visibilityOnOff();
-                                                  controller.seekTo(
-                                                    Duration(
-                                                        seconds: controller
-                                                                .value
-                                                                .position
-                                                                .inSeconds -
-                                                            10),
-                                                  );
-                                                });
-                                              },
-                                              iconStyle:
-                                                  Icons.replay_10_rounded),
-                                          videoPlayerButtons(
-                                              onButtonTap: () {
-                                                visibilityOnOff();
-                                                setState(() {
-                                                  controller.value.isPlaying
-                                                      ? controller.pause()
-                                                      : controller.play();
-                                                });
-                                              },
-                                              iconStyle: (controller
-                                                      .value.isPlaying)
-                                                  ? Icons.pause_rounded
-                                                  : Icons.play_arrow_rounded),
-                                          videoPlayerButtons(
-                                              onButtonTap: () {
-                                                visibilityOnOff();
-                                                setState(() {
-                                                  controller.seekTo(
-                                                    Duration(
-                                                        seconds: controller
-                                                                .value
-                                                                .position
-                                                                .inSeconds +
-                                                            10),
-                                                  );
-                                                });
-                                              },
-                                              iconStyle:
-                                                  Icons.forward_10_rounded),
-                                          videoPlayerButtons(
-                                              onButtonTap: () {
-                                                setState(() {
-                                                  Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          FullScreen(
-                                                              controller:
-                                                                  controller),
-                                                    ),
-                                                  );
-                                                });
-                                              },
-                                              iconStyle:
-                                                  Icons.fullscreen_rounded),
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceEvenly,
+                                            children: [
+                                              videoPlayerButtons(
+                                                  onButtonTap: () {
+                                                    visibilityOnOff();
+                                                    onBackward10();
+                                                  },
+                                                  iconStyle:
+                                                      Icons.replay_10_rounded),
+                                              videoPlayerButtons(
+                                                  onButtonTap: () {
+                                                    visibilityOnOff();
+                                                    playPause();
+                                                  },
+                                                  iconStyle: (controller
+                                                          .value.isPlaying)
+                                                      ? Icons.pause_rounded
+                                                      : Icons
+                                                          .play_arrow_rounded),
+                                              videoPlayerButtons(
+                                                  onButtonTap: () {
+                                                    visibilityOnOff();
+                                                    onForward10();
+                                                  },
+                                                  iconStyle:
+                                                      Icons.forward_10_rounded),
+                                              videoPlayerButtons(
+                                                  onButtonTap: () {
+                                                    onFullScreen();
+                                                  },
+                                                  iconStyle:
+                                                      Icons.fullscreen_rounded),
+                                            ],
+                                          ),
                                         ],
                                       ),
-                                    ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          :
+
+                          ///For  no internet and uninitialized video player..
+                          GestureDetector(
+                              onTap: (() async {
+                                await onReload();
+                              }),
+                              child: AspectRatio(
+                                aspectRatio: 16 / 9,
+                                child: Container(
+                                  padding: const EdgeInsets.all(20),
+                                  color: Colors.black,
+                                  width: double.infinity,
+                                  child: Center(
+                                    child: (controller.value.isInitialized ||
+                                            internet != true)
+                                        ? Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: const [
+                                              Text(
+                                                "Please check your internet connection and retry...",
+                                                style: TextStyle(
+                                                    color: Colors.white),
+                                                overflow: TextOverflow.visible,
+                                              ),
+                                              Icon(Icons.replay_outlined,
+                                                  color: Colors.white),
+                                            ],
+                                          )
+                                        : const CircularProgressIndicator(
+                                            color: Colors.white54,
+                                          ),
                                   ),
                                 ),
                               ),
-                            ]))
-                        :
+                            ),
+                    ),
 
-                        ///For  no internet and uninitialized video player..
-                        AspectRatio(
-                            aspectRatio: 16 / 9,
-                            child: Container(
-                              padding: const EdgeInsets.all(20),
-                              color: Colors.black,
-                              width: double.infinity,
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Align(
-                                      alignment: Alignment.center,
-                                      child: Text(
-                                        "Looks like there was some issue.."
-                                        "Please try reloading..",
-                                        style: TextStyle(color: Colors.white),
-                                        overflow: TextOverflow.visible,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      onPressed: (() async {
-                                        await checkInternet();
-                                        if (internet == true) {
-                                          controller =
-                                              VideoPlayerController.network(url)
-                                                ..initialize().then((_) {
-                                                  // Ensure the first frame is shown after the video is initialized, even before the play button has been pressed.
-                                                  setState(() {});
-                                                });
-                                        }
-                                      }),
-                                      icon: const Icon(Icons.replay_outlined),
-                                      color: Colors.white,
-                                    ),
-                                  ],
-                                ),
+                    ///Download and other buttons...
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ///Download Button...
+                        IconButton(
+                          icon: const Icon(
+                            size: 35,
+                            Icons.download_rounded,
+                          ),
+                          color: Colors.red,
+                          onPressed: () async => await downloadFile(),
+                          padding: const EdgeInsets.all(10),
+                        ),
+
+                        /// Saved Videos Page Route...
+                        // MaterialButton(
+                        //   onPressed: () {
+                        //     Navigator.push(
+                        //       context,
+                        //       MaterialPageRoute(
+                        //         builder: (context) => SavedVideos(id: id),
+                        //       ),
+                        //     );
+                        //   },
+                        //   color: Colors.red,
+                        //   child: const Text(
+                        //     "Saved Videos",
+                        //     style: TextStyle(color: Colors.white),
+                        //   ),
+                        // ),
+
+                        ///Clear all videos
+                        IconButton(
+                          onPressed: () async => await onClearAll(),
+                          iconSize: 35,
+                          color: Colors.red,
+                          icon: const Icon(Icons.clear_all_rounded),
+                        ),
+                      ],
+                    ),
+                    (loading)
+                        ? Consumer(
+                            builder:
+                                (BuildContext context, value, Widget? child) =>
+                                    Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: LinearProgressIndicator(
+                                minHeight: 10,
+                                value: progress / 100,
                               ),
                             ),
+                          )
+                        : const SizedBox(),
+                    // (widget.offline == true)
+                    //     ? const Text("Offline Mode")
+                    //     : const SizedBox(),
+                    MaterialButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const UploadFile(),
                           ),
-                  ),
-
-                  ///Download and other buttons...
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ///Download Button...
-                      IconButton(
-                        icon: const Icon(
-                          size: 35,
-                          Icons.download_rounded,
-                        ),
-                        color: Colors.red,
-                        onPressed: downloadFile,
-                        padding: const EdgeInsets.all(10),
+                        );
+                      },
+                      color: Colors.red,
+                      child: const Text(
+                        "Upload File",
+                        style: TextStyle(color: Colors.white),
                       ),
-
-                      /// Saved Videos Page Route...
-                      // MaterialButton(
-                      //   onPressed: () {
-                      //     Navigator.push(
-                      //       context,
-                      //       MaterialPageRoute(
-                      //         builder: (context) => SavedVideos(id: id),
-                      //       ),
-                      //     );
-                      //   },
-                      //   color: Colors.red,
-                      //   child: const Text(
-                      //     "Saved Videos",
-                      //     style: TextStyle(color: Colors.white),
-                      //   ),
-                      // ),
-
-                      ///Clear all videos
-                      IconButton(
-                        onPressed: () async {
-                          await onClearAll();
-                        },
-                        iconSize: 35,
-                        color: Colors.red,
-                        icon: const Icon(Icons.clear_all_rounded),
-                      ),
-                    ],
-                  ),
-                  (loading)
-                      ? Consumer(
-                          builder:
-                              (BuildContext context, value, Widget? child) =>
-                                  Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: LinearProgressIndicator(
-                              minHeight: 10,
-                              value: progress / 100,
-                            ),
-                          ),
-                        )
-                      : const SizedBox(),
-                  // (widget.offline == true)
-                  //     ? const Text("Offline Mode")
-                  //     : const SizedBox(),
-                  MaterialButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const UploadFile(),
-                        ),
-                      );
-                    },
-                    color: Colors.red,
-                    child: const Text(
-                      "Upload File",
-                      style: TextStyle(color: Colors.white),
                     ),
-                  ),
-                ])),
-          ),
-          (data.isNotEmpty)
-              ? Expanded(
-                  child: ListView.builder(
-                    physics: const BouncingScrollPhysics(),
-                    scrollDirection: Axis.vertical,
-                    shrinkWrap: true,
-                    itemCount: (data.isEmpty) ? 0 : data.length,
-                    itemBuilder: (context, index) => Padding(
-                      padding: const EdgeInsets.all(2),
-                      child: ListTile(
-                        trailing: IconButton(
+                  ],
+                ),
+              ),
+            ),
+            (data.isNotEmpty)
+                ? Expanded(
+                    child: ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      scrollDirection: Axis.vertical,
+                      padding: const EdgeInsets.only(bottom: 60),
+                      shrinkWrap: true,
+                      itemCount: (data.isEmpty) ? 0 : data.length,
+                      itemBuilder: (context, index) => Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: ListTile(
+                          trailing: IconButton(
                             onPressed: () async {
                               await deleteVideo(index);
                             },
                             icon: const Icon(
                               Icons.delete,
                               color: Colors.black,
-                            )),
-                        shape: Border.all(width: 0.7, color: Colors.black),
-                        tileColor: Colors.redAccent,
-                        onTap: () {
-                          onTilePressed(index: index);
-                        },
-                        title: Text("${data[taskList[index]]}"),
+                            ),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          tileColor: Colors.blueGrey,
+                          onTap: () {
+                            onTilePressed(index: index);
+                          },
+                          title: Text("${data[taskList[index]]}"),
+                        ),
+                      ),
+                    ),
+                  )
+                : const Expanded(
+                    child: Center(
+                      child: Text(
+                        "No videos saved",
                       ),
                     ),
                   ),
-                )
-              : const Center(
-                  child: Text(
-                    "No videos saved",
-                  ),
-                ),
-          Container(
+            Container(
               decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(top: BorderSide(color: Colors.black))),
-              padding: const EdgeInsets.all(20),
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black38,
+                      offset: Offset(0, -2),
+                      blurRadius: 5,
+                      spreadRadius: 5)
+                ],
+                // border: Border(
+                //   top: BorderSide(color: Colors.black),
+                // ),
+              ),
+              padding: const EdgeInsets.all(10),
+              height: 60,
               width: double.infinity,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   GestureDetector(
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const QuizPage(),
-                        )),
+                    onTap: () => onQuizPageClick(),
                     child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          borderRadius:
-                              const BorderRadius.all(Radius.circular(20)),
-                          border: Border.all(
-                            color: Colors.black,
-                            width: 1,
+                        padding: const EdgeInsets.all(5),
+                        decoration: const BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.all(
+                            Radius.circular(5),
                           ),
+                          // border: Border.all(
+                          //   color: Colors.black,
+                          //   width: 1,
+                          // ),
                         ),
                         child: const Text("Take me to Quiz")),
                   ),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.all(Radius.circular(20)),
-                      border: Border.all(
-                        color: Colors.black,
-                        width: 1,
+                  GestureDetector(
+                    onTap: () => onDocumentViewerClick(),
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: const BoxDecoration(
+                        color: Colors.redAccent,
+                        borderRadius: BorderRadius.all(
+                          Radius.circular(5),
+                        ),
                       ),
+                      child: const Text("Document viewer"),
                     ),
-                    child: const Text("I dont understand"),
                   ),
                 ],
-              )),
-        ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-}
-
-Widget videoPlayerButtons(
-    {required Function() onButtonTap, required iconStyle}) {
-  return IconButton(
-    onPressed: () {
-      onButtonTap();
-    },
-    icon: Icon(iconStyle),
-    iconSize: 35,
-    color: Colors.white.withOpacity(0.8),
-  );
 }

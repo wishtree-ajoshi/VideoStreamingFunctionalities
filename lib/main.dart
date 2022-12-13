@@ -1,15 +1,21 @@
 import 'package:demo_app/screens/main_page.dart';
 import 'package:demo_app/methods/database.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await FlutterDownloader.initialize(
     debug: true,
     ignoreSsl: true,
   );
+  await Firebase.initializeApp();
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
   await Hive.initFlutter();
   await HiveDb().createBox();
   await initialListLoad();

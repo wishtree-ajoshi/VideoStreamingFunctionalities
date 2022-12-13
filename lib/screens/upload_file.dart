@@ -1,7 +1,7 @@
 import 'dart:io';
-
 import 'package:demo_app/methods/image_picker.dart';
 import 'package:demo_app/methods/request_permissions.dart';
+import 'package:demo_app/widgets/reusable_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -13,37 +13,60 @@ class UploadFile extends StatefulWidget {
 }
 
 class _UploadFileState extends State<UploadFile> {
-  File? _image;
+  File? image;
   String? imageUrl;
 
+  showErrorDialog({required bool isCamera}) async {
+    return showDialog(
+      context: context,
+      builder: (context) => popUpWidget(
+          title: (isCamera)
+              ? "Camera permission is denied.. Please enable permissions in settings."
+              : "Gallery or Storage permission is denied.. Please enable permissions in settings.",
+          onCancelPressed: () {
+            Navigator.pop(context);
+          },
+          onOkPressed: () {
+            Navigator.pop(context);
+            openAppSettings();
+          },
+          leftButtonTitle: "Cancel",
+          rightButtonTitle: "Go to settings"),
+    );
+  }
+
   uploadImageFromCamera() async {
-    imageUrl = await ImageSelector().pickImageCamera(imageUrl, _image);
-    if (imageUrl == null) {
-      if (_image == null) {
-        return;
-      } else {
-        imageUrl = _image!.path;
+    imageUrl = await ImageSelector().pickImageCamera(imageUrl, image);
+    print("///////////// ${imageUrl}");
+    if (imageUrl == '') {
+      return;
+    }
+    final croppedFile = await ImageSelector().cropImage(imageUrl);
+    if (croppedFile != null) {
+      final File newImage = File(croppedFile.path);
+      if (mounted) {
+        setState(() {
+          image = newImage;
+        });
       }
     }
-    final File newImage = File(imageUrl!);
-    setState(() {
-      _image = newImage;
-    });
   }
 
   uploadImageFromGallery() async {
-    imageUrl = await ImageSelector().pickImageGallery(imageUrl, _image);
-    if (imageUrl == null) {
-      if (_image == null) {
-        return;
-      } else {
-        imageUrl = _image!.path;
+    imageUrl = await ImageSelector().pickImageGallery(imageUrl, image);
+    print("*/*/*/*/*/*/  $imageUrl");
+    if (imageUrl == '') {
+      return;
+    }
+    final croppedFile = await ImageSelector().cropImage(imageUrl);
+    if (croppedFile != null) {
+      final File newImage = File(croppedFile.path);
+      if (mounted) {
+        setState(() {
+          image = newImage;
+        });
       }
     }
-    final File newImage = File(imageUrl!);
-    setState(() {
-      _image = newImage;
-    });
   }
 
   @override
@@ -59,12 +82,12 @@ class _UploadFileState extends State<UploadFile> {
               child: CircleAvatar(
                 radius: 70,
                 backgroundColor: Colors.orangeAccent,
-                child: (_image == null)
+                child: (image == null)
                     ? Image.asset(
                         "assets/noImage.png",
                       )
                     : Image.file(
-                        _image!,
+                        image!,
                         width: 140,
                         fit: BoxFit.fitWidth,
                       ),
@@ -77,14 +100,7 @@ class _UploadFileState extends State<UploadFile> {
                   print("checking permissions");
                   uploadImageFromCamera();
                 } else {
-                  showDialog(
-                    context: context,
-                    builder: (context) {
-                      return const AlertDialog(
-                        title: Text("Camera permission not granted"),
-                      );
-                    },
-                  );
+                  showErrorDialog(isCamera: true);
                 }
               },
               color: Colors.orange,
@@ -99,14 +115,7 @@ class _UploadFileState extends State<UploadFile> {
                     .checkPermission(Permission.storage)) {
                   uploadImageFromGallery();
                 } else {
-                  showDialog(
-                    context: context,
-                    builder: (context) {
-                      return const AlertDialog(
-                        title: Text("Storage access permission not granted"),
-                      );
-                    },
-                  );
+                  showErrorDialog(isCamera: false);
                 }
               },
               color: Colors.orange,
@@ -115,16 +124,16 @@ class _UploadFileState extends State<UploadFile> {
                 style: TextStyle(color: Colors.white),
               ),
             ),
-            MaterialButton(
-              onPressed: () async {
-                await RequestPermissions().checkPermission(Permission.storage);
-              },
-              color: Colors.orange,
-              child: const Text(
-                "Upload File",
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
+            // MaterialButton(
+            //   onPressed: () async {
+            //     await RequestPermissions().checkPermission(Permission.storage);
+            //   },
+            //   color: Colors.orange,
+            //   child: const Text(
+            //     "Upload File",
+            //     style: TextStyle(color: Colors.white),
+            //   ),
+            // ),
           ],
         )),
       ),

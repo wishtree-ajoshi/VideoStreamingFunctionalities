@@ -59,6 +59,12 @@
 	</dict>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>$(PRODUCT_NAME)photos description.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tez</string>
+    	<string>phonepe</string>
+    	<string>paytmmp</string>
+	</array
 	
 </dict>
 </plist>

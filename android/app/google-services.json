@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "844806217833",
+    "project_id": "videostreamer-3e942",
+    "storage_bucket": "videostreamer-3e942.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:844806217833:android:c1abdcba0ad1d207e082f8",
+        "android_client_info": {
+          "package_name": "com.example.demo_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "844806217833-ilc93au765q0k4d25a7jvv76iabsd3nq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDOsZrkZTacEJNLljvL9HZIFEDhcNwhSw8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "844806217833-ilc93au765q0k4d25a7jvv76iabsd3nq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

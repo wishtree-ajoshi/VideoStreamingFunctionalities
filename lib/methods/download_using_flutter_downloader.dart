@@ -8,11 +8,11 @@ class DownloadUsingFlutterDownloader {
     final status =
         await RequestPermissions().checkPermission(Permission.storage);
     if (status) {
-      final externalDir = await getApplicationDocumentsDirectory();
+      final externalDir = await getExternalStorageDirectory();
       try {
         final taskId = await FlutterDownloader.enqueue(
           url: url,
-          savedDir: externalDir.path,
+          savedDir: externalDir!.path,
           openFileFromNotification: false,
           showNotification: true,
           fileName: "${DateTime.now()}",
@@ -29,6 +29,17 @@ class DownloadUsingFlutterDownloader {
         return null;
       }
     } else {
+      return null;
+    }
+  }
+
+  pauseVideo({required taskId}) async {
+    try {
+      await FlutterDownloader.pause(taskId: taskId).whenComplete(() {
+        true;
+      }).onError((error, stackTrace) => null);
+    } catch (e) {
+      print("***+*+*+*+*+*+*+*+*++*+*+*+*+*+*+*+*+*$e");
       return null;
     }
   }
